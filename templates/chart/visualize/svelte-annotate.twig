@@ -10,11 +10,14 @@ require(['svelte/{{ plugin }}/annotations'], function(mod) {
 
     var chartData = {{ chart.toStruct() | json | raw }};
     var chart = new mod.Chart(chartData);
+    var themeData = {{ theme.data | json | raw }};
+    chart.set({ themeData: themeData });
 
-    new App({
+    var controlsApp = new App({
         store: chart,
         target: document.querySelector('#svelte-annotations')
     });
+    window.controlsApp = controlsApp;
 
     chart.on('state', function (_ref) {
         var changed = _ref.changed;
@@ -24,21 +27,27 @@ require(['svelte/{{ plugin }}/annotations'], function(mod) {
         if (previous && changed.metadata) {
             chart.store();
         }
-
-        if (dw && dw.backend && dw.backend.currentChart) {
-            var iframe = document.querySelector('#iframe-vis');
-            if (iframe && iframe.contentWindow) {
-                var win = iframe.contentWindow;
-                if (win.__dw && win.__dw.attributes) {
-                    win.__dw.attributes({ metadata: current.metadata });
-                }
-            }
-
-            // set metadata directly without saving again
-            dw.backend.currentChart.attributes().metadata = JSON.parse(JSON.stringify(current.metadata));
-        }
     });
 
+    function getContext(callback) {
+        var win = $('#iframe-vis').get(0).contentWindow;
+        var doc = $('#iframe-vis').get(0).contentDocument;
+        if (!win || !win.__dw || !win.__dw.vis) {
+            return setTimeout(function () {
+                getContext(callback);
+            }, 200);
+        }
+        callback(win, doc);
+    }
+
+    $('#iframe-vis').load(function () {
+        getContext(function(win, doc) {
+            controlsApp.set({
+                iframeWindow: win,
+                iframeDocument: doc
+            });
+        });
+    });
 });
 
 </script>
